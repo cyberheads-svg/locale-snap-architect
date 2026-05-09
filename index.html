@@ -7,74 +7,18 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-    body {
-      font-family: 'Inter', system_ui, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
-      margin: 0;
-      padding: 24px;
-    }
-    .container {
-      max-width: 960px;
-      margin: 0 auto;
-    }
-    h1 {
-      text-align: center;
-      color: #c084fc;
-      margin-bottom: 8px;
-    }
-    .subtitle {
-      text-align: center;
-      color: #64748b;
-      margin-bottom: 24px;
-    }
-    #map {
-      height: 520px;
-      border-radius: 16px;
-      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-      margin-bottom: 24px;
-    }
-    .controls {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      margin-bottom: 24px;
-    }
-    button {
-      padding: 14px 32px;
-      background: #c084fc;
-      color: #0f172a;
-      border: none;
-      border-radius: 9999px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    button:hover {
-      background: #a855f7;
-      transform: translateY(-1px);
-    }
-    .result {
-      background: #1e2937;
-      border-radius: 16px;
-      padding: 24px;
-      margin-top: 16px;
-    }
-    .label {
-      font-size: 13px;
-      color: #94a3b8;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-    .prompt {
-      background: #0f172a;
-      padding: 18px;
-      border-radius: 12px;
-      font-size: 15px;
-      line-height: 1.6;
-      color: #e0e7ff;
-    }
+    body { font-family: 'Inter', system_ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 24px; }
+    .container { max-width: 960px; margin: 0 auto; }
+    h1 { text-align: center; color: #c084fc; margin-bottom: 8px; }
+    .subtitle { text-align: center; color: #64748b; margin-bottom: 24px; }
+    #map { height: 520px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); margin-bottom: 24px; }
+    .controls { display: flex; gap: 12px; justify-content: center; margin-bottom: 24px; }
+    button { padding: 14px 32px; background: #c084fc; color: #0f172a; border: none; border-radius: 9999px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    button:hover { background: #a855f7; transform: translateY(-1px); }
+    .result { background: #1e2937; border-radius: 16px; padding: 24px; margin-top: 16px; }
+    .label { font-size: 13px; color: #94a3b8; margin-bottom: 8px; font-weight: 500; }
+    .prompt { background: #0f172a; padding: 18px; border-radius: 12px; font-size: 15px; line-height: 1.6; color: #e0e7ff; }
+    .location-info { font-size: 13px; color: #64748b; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -92,6 +36,7 @@
     <div id="result" class="result" style="display: none;">
       <div class="label">生成されたプロンプト</div>
       <div id="promptText" class="prompt"></div>
+      <div id="locationInfo" class="location-info"></div>
     </div>
   </div>
 
@@ -106,27 +51,38 @@
     let marker = null;
     let lat = null;
     let lng = null;
+    let placeName = '';
 
-    map.on('click', function(e) {
+    map.on('click', async function(e) {
       if (marker) map.removeLayer(marker);
 
       lat = e.latlng.lat;
       lng = e.latlng.lng;
 
-      marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`<b>撮影場所</b><br>緯度: ${lat.toFixed(4)}<br>経度: ${lng.toFixed(4)}`)
-        .openPopup();
+      marker = L.marker([lat, lng]).addTo(map);
+
+      // 逆ジオコーディング（場所名取得）
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+        const data = await res.json();
+        placeName = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        marker.bindPopup(`<b>${placeName}</b>`).openPopup();
+      } catch (err) {
+        placeName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        marker.bindPopup(`緯度: ${lat.toFixed(4)}<br>経度: ${lng.toFixed(4)}`).openPopup();
+      }
     });
 
-    function generatePrompt() {
+    async function generatePrompt() {
       if (!lat || !lng) {
         alert('地図上で撮影場所をクリックしてください');
         return;
       }
 
-      const prompt = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s, standing at latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)}, soft natural daylight, relaxed expression, street fashion, shot on iPhone 15, documentary style, slight motion blur, authentic moment`;
+      const prompt = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s, standing in ${placeName}, soft natural daylight, relaxed expression, street fashion, shot on iPhone 15, documentary style, slight motion blur, authentic moment`;
 
       document.getElementById('promptText').textContent = prompt;
+      document.getElementById('locationInfo').innerHTML = `📍 ${placeName}`;
       document.getElementById('result').style.display = 'block';
     }
 
@@ -137,6 +93,7 @@
       }
       lat = null;
       lng = null;
+      placeName = '';
       document.getElementById('result').style.display = 'none';
     }
 
