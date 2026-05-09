@@ -282,28 +282,32 @@ function renderUI() {
 }
 
 function generate() {
-generated++;
-if (!lat || !lng) { alert('地図上で撮影場所をクリックしてください'); return; }
+  generated++;
+  if (!lat || !lng) { alert('地図上で撮影場所をクリックしてください'); return; }
 
-lastVals = {
-style:  isLocked('style')  ? lastVals.style  : pick(STYLES),
-top:    isLocked('top')    ? lastVals.top    : pick(TOPS),
-bottom: isLocked('bottom') ? lastVals.bottom : pick(BOTTOMS),
-fabric: isLocked('fabric') ? lastVals.fabric : pick(FABRICS),
-color:  isLocked('color')  ? lastVals.color  : pick(COLORS[currentSeason]),
-hair:   isLocked('hair')   ? lastVals.hair   : pick(HAIR),
-makeup: isLocked('makeup') ? lastVals.makeup : pick(MAKEUP),
-acc:    isLocked('acc')    ? lastVals.acc    : pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(", "),
-shoe:   isLocked('shoe')   ? lastVals.shoe   : pick(SHOES),
-outer:  isLocked('outer')  ? lastVals.outer  : (currentSeason !== 'summer' && Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null),
-};
+  // 新規生成時は、ロックされていないクリア項目をリセット
+  CLEARABLE.forEach(k => {
+    if (!isLocked(k)) {
+      clearedFields[k] = false;
+    }
+  });
 
-// Clearされているものは引き継ぐ
-CLEARABLE.forEach(k => { if (isCleared(k)) clearedFields[k] = true; });
+  lastVals = {
+    style:  isLocked('style')  ? lastVals.style  : pick(STYLES),
+    top:    isLocked('top')    ? lastVals.top    : pick(TOPS),
+    bottom: isLocked('bottom') ? lastVals.bottom : pick(BOTTOMS),
+    fabric: isLocked('fabric') ? lastVals.fabric : pick(FABRICS),
+    color:  isLocked('color')  ? lastVals.color  : pick(COLORS[currentSeason]),
+    hair:   isLocked('hair')   ? lastVals.hair   : pick(HAIR),
+    makeup: isLocked('makeup') ? lastVals.makeup : pick(MAKEUP),
+    acc:    isLocked('acc')    ? lastVals.acc    : pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(", "),
+    shoe:   isLocked('shoe')   ? lastVals.shoe   : pick(SHOES),
+    outer:  isLocked('outer')  ? lastVals.outer  : (currentSeason !== 'summer' && Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null),
+  };
 
-document.getElementById('result').style.display = 'block';
-document.getElementById('saveBtn').style.display = 'block';
-buildPrompt();
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('saveBtn').style.display = 'block';
+  buildPrompt();
 }
 
 function copyPrompt() {
