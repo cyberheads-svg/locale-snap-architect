@@ -34,6 +34,10 @@
   .field-row:last-child { border-bottom: none; }
   .field-row.is-locked { background: #0f0d14; }
   .field-row.is-cleared { opacity: .35; }
+  .field-row.group-person { background: rgba(249, 168, 212, 0.06); }
+  .field-row.group-outfit { background: rgba(192, 132, 252, 0.06); }
+  .field-row.group-material { background: rgba(147, 197, 253, 0.06); }
+  .field-row.group-detail { background: rgba(103, 232, 249, 0.06); }
   .field-label { font-size: 9px; letter-spacing: 1px; color: #666; text-transform: uppercase; }
   .field-value { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 15px; color: #ddd; }
   .field-value.cleared { font-family: 'DM Mono', monospace; font-style: normal; font-size: 11px; color: #333 !important; }
@@ -132,7 +136,6 @@ function setSeason(s) {
   currentSeason = s;
   document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-season="${s}"]`).classList.add('active');
-  // season変更時にouter・colorを再ロールしていない場合のみ更新
   if (!lockedFields['outer'] && !clearedFields['outer']) {
     lastVals.outer = currentSeason === 'summer' ? null : (Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null);
   }
@@ -187,11 +190,9 @@ function buildPrompt() {
 
   let desc = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s`;
 
-  // Hair + Makeup
   if (!isCleared('hair') && v.hair) desc += ` with ${v.hair}`;
   if (!isCleared('makeup') && v.makeup) desc += ` and ${v.makeup}`;
 
-  // Outfit
   let outfitParts = [];
   if (v.top) outfitParts.push(v.top);
   if (v.bottom) outfitParts.push(v.bottom);
@@ -208,36 +209,31 @@ function buildPrompt() {
     desc += `, wearing ${outfitDesc}`;
   }
 
-  // Fabric + Color
   if (v.fabric && v.color) {
     desc += ` in ${v.color} tones with ${v.fabric} fabric`;
   } else if (v.color) {
     desc += ` in ${v.color} tones`;
   }
 
-  // Accessories
   if (!isCleared('acc') && v.acc) {
     desc += `, accessorized with ${v.acc}`;
   }
 
-  // Shoes
   if (v.shoe) {
     desc += `, paired with ${v.shoe}`;
   }
 
-  // Location (緯度経度 + 住所)
   if (lat && lng && placeName) {
     desc += `, standing at latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)} (${placeName})`;
   }
 
-  // Ending
   desc += `, soft natural daylight, relaxed and authentic expression, street fashion photography, slight motion blur, shot on iPhone, documentary style`;
 
   currentPrompt = desc;
   renderUI();
 }
 
-function fieldRow(label, key, value, clearable) {
+function fieldRow(label, key, value, clearable, group) {
   const locked  = isLocked(key);
   const cleared = isCleared(key);
   const displayVal = cleared
@@ -248,7 +244,7 @@ function fieldRow(label, key, value, clearable) {
   const clearBtn  = clearable
     ? `<button class="clear-btn ${cleared ? 'active' : ''}" onclick="toggleClear('${key}')">✖</button>`
     : '';
-  return `<div class="field-row ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''}">
+  return `<div class="field-row ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''} ${group}">
     <div class="field-label">${label}</div>
     ${displayVal}
     <div class="field-actions">${lockBtn}${rerollBtn}${clearBtn}</div>
@@ -258,16 +254,16 @@ function fieldRow(label, key, value, clearable) {
 function renderUI() {
   const v = lastVals;
   const rows = [
-    fieldRow('Hair',       'hair',   v.hair,   true),
-    fieldRow('Makeup',     'makeup', v.makeup, true),
-    fieldRow('Style',      'style',  v.style,  false),
-    fieldRow('Top',        'top',    v.top,    false),
-    fieldRow('Bottom',     'bottom', v.bottom, false),
-    fieldRow('Outerwear',  'outer',  v.outer,  true),
-    fieldRow('Fabric',     'fabric', v.fabric, false),
-    fieldRow('Color',      'color',  v.color,  false),
-    fieldRow('Accessories','acc',    v.acc,    true),
-    fieldRow('Shoes',      'shoe',   v.shoe,   false),
+    fieldRow('Hair',       'hair',   v.hair,   true,  'group-person'),
+    fieldRow('Makeup',     'makeup', v.makeup, true,  'group-person'),
+    fieldRow('Style',      'style',  v.style,  false, 'group-outfit'),
+    fieldRow('Top',        'top',    v.top,    false, 'group-outfit'),
+    fieldRow('Bottom',     'bottom', v.bottom, false, 'group-outfit'),
+    fieldRow('Outerwear',  'outer',  v.outer,  true,  'group-outfit'),
+    fieldRow('Fabric',     'fabric', v.fabric, false, 'group-material'),
+    fieldRow('Color',      'color',  v.color,  false, 'group-material'),
+    fieldRow('Accessories','acc',    v.acc,    true,  'group-detail'),
+    fieldRow('Shoes',      'shoe',   v.shoe,   false, 'group-detail'),
   ].join('');
 
   document.getElementById('result').innerHTML = `
@@ -283,14 +279,9 @@ function renderUI() {
 
 function generate() {
   generated++;
-  if (!lat || !lng) { alert('地図上で撮影場所をクリックしてください'); return; }
+  if (!lat || !lng) { alert('Please click on the map to select a shooting location'); return; }
 
-  // 新規生成時は、ロックされていないクリア項目をリセット
-  CLEARABLE.forEach(k => {
-    if (!isLocked(k)) {
-      clearedFields[k] = false;
-    }
-  });
+  CLEARABLE.forEach(k => { if (!isLocked(k)) clearedFields[k] = false; });
 
   lastVals = {
     style:  isLocked('style')  ? lastVals.style  : pick(STYLES),
@@ -350,7 +341,7 @@ initMap();
 setSeason('spring');
 renderSaved();
 setTimeout(() => {
-  L.popup().setLatLng([35.6895, 139.6917]).setContent('地図をクリックして撮影場所を指定').openOn(map);
+  L.popup().setLatLng([35.6895, 139.6917]).setContent('Click on the map to select shooting location').openOn(map);
 }, 700);
 </script>
 
