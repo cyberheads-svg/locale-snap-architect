@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locale Snap Architect</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    body {
+      font-family: 'Inter', system_ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 24px;
+    }
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      color: #c084fc;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+    #map {
+      height: 520px;
+      border-radius: 16px;
+      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+      margin-bottom: 24px;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+    button {
+      padding: 14px 32px;
+      background: #c084fc;
+      color: #0f172a;
+      border: none;
+      border-radius: 9999px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #a855f7;
+      transform: translateY(-1px);
+    }
+    .result {
+      background: #1e2937;
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 16px;
+    }
+    .label {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .prompt {
+      background: #0f172a;
+      padding: 18px;
+      border-radius: 12px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #e0e7ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Locale Snap Architect</h1>
+    <p class="subtitle">地図で場所を選んで、女性のスナップ写真プロンプトを生成</p>
+
+    <div id="map"></div>
+
+    <div class="controls">
+      <button onclick="generatePrompt()">スナップ写真プロンプトを生成</button>
+      <button onclick="clearAll()" style="background: #475569; color: white;">リセット</button>
+    </div>
+
+    <div id="result" class="result" style="display: none;">
+      <div class="label">生成されたプロンプト</div>
+      <div id="promptText" class="prompt"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([35.6895, 139.6917], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker = null;
+    let lat = null;
+    let lng = null;
+
+    map.on('click', function(e) {
+      if (marker) map.removeLayer(marker);
+
+      lat = e.latlng.lat;
+      lng = e.latlng.lng;
+
+      marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<b>撮影場所</b><br>緯度: ${lat.toFixed(4)}<br>経度: ${lng.toFixed(4)}`)
+        .openPopup();
+    });
+
+    function generatePrompt() {
+      if (!lat || !lng) {
+        alert('地図上で撮影場所をクリックしてください');
+        return;
+      }
+
+      const prompt = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s, standing at latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)}, soft natural daylight, relaxed expression, street fashion, shot on iPhone 15, documentary style, slight motion blur, authentic moment`;
+
+      document.getElementById('promptText').textContent = prompt;
+      document.getElementById('result').style.display = 'block';
+    }
+
+    function clearAll() {
+      if (marker) {
+        map.removeLayer(marker);
+        marker = null;
+      }
+      lat = null;
+      lng = null;
+      document.getElementById('result').style.display = 'none';
+    }
+
+    setTimeout(() => {
+      L.popup()
+        .setLatLng([35.6895, 139.6917])
+        .setContent('地図をクリックして撮影場所を指定しよう！')
+        .openOn(map);
+    }, 600);
+  </script>
+</body>
+</html>
