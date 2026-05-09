@@ -262,7 +262,7 @@ function buildPrompt() {
   const v = lastVals;
   if (!v || Object.keys(v).length === 0) return;
 
-  let desc = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s`;
+  let desc = `A natural candid snapshot photo of a stylish woman in her mid-20s`;
 
   if (!isCleared('hair') && v.hair) desc += ` with ${v.hair}`;
   if (!isCleared('makeup') && v.makeup) desc += ` and ${v.makeup}`;
