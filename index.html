@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Locale Snap Architect</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400&display=swap');
   :root {
@@ -91,6 +92,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.js"></script>
 
 <script>
 let currentSeason = 'spring';
@@ -111,11 +113,41 @@ function initMap() {
     attribution: '© OpenStreetMap'
   }).addTo(map);
 
+  // Search control
+  const searchControl = new L.Control.Search({
+    url: 'https://nominatim.openstreetmap.org/search?format=json&q={s}',
+    jsonpParam: 'json_callback',
+    propertyName: 'display_name',
+    propertyLoc: ['lat', 'lon'],
+    marker: false,
+    autoCollapse: true,
+    autoType: false,
+    minLength: 2
+  });
+
+  searchControl.on('search:locationfound', function(e) {
+    if (marker) map.removeLayer(marker);
+
+    lat = parseFloat(e.latlng.lat);
+    lng = parseFloat(e.latlng.lng);
+    placeName = e.text;
+
+    marker = L.marker([lat, lng]).addTo(map);
+    marker.bindPopup(`<b>${placeName}</b>`).openPopup();
+
+    if (hasGenerated) {
+      buildPrompt();
+    }
+  });
+
+  map.addControl(searchControl);
+
   map.on('click', async function(e) {
     if (marker) map.removeLayer(marker);
     lat = e.latlng.lat;
     lng = e.latlng.lng;
     marker = L.marker([lat, lng]).addTo(map);
+
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=en`);
       const data = await res.json();
@@ -124,6 +156,10 @@ function initMap() {
     } catch {
       placeName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
       marker.bindPopup(`Lat: ${lat.toFixed(4)}<br>Lng: ${lng.toFixed(4)}`).openPopup();
+    }
+
+    if (hasGenerated) {
+      buildPrompt();
     }
   });
 }
@@ -337,7 +373,7 @@ initMap();
 setSeason('spring');
 renderSaved();
 setTimeout(() => {
-  L.popup().setLatLng([35.6895, 139.6917]).setContent('Click on the map to select shooting location').openOn(map);
+  L.popup().setLatLng([35.6895, 139.6917]).setContent('Click on the map to select shooting location or use the search bar').openOn(map);
 }, 700);
 </script>
 
