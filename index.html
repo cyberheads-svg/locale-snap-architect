@@ -99,6 +99,7 @@ let currentPrompt = '';
 let lastVals = {};
 let lockedFields = {};
 let clearedFields = {};
+let hasGenerated = false;
 let map, marker, lat, lng, placeName = '';
 
 // Clear可能なフィールド
@@ -124,7 +125,6 @@ function initMap() {
       placeName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
       marker.bindPopup(`Lat: ${lat.toFixed(4)}<br>Lng: ${lng.toFixed(4)}`).openPopup();
     }
-    buildPrompt();
   });
 }
 
@@ -132,13 +132,6 @@ function setSeason(s) {
   currentSeason = s;
   document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-season="${s}"]`).classList.add('active');
-  if (!lockedFields['outer'] && !clearedFields['outer']) {
-    lastVals.outer = currentSeason === 'summer' ? null : (Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null);
-  }
-  if (!lockedFields['color']) {
-    lastVals.color = pick(COLORS[currentSeason]);
-  }
-  if (Object.keys(lastVals).length > 0) buildPrompt();
 }
 
 const STYLES = ["dark academia","light academia","cottagecore","fairycore","streetwear","quiet luxury","Parisian chic","Tokyo street fashion","coastal grandmother","clean girl","e-girl","soft girl","old money","balletcore"];
@@ -248,6 +241,11 @@ function fieldRow(label, key, value, clearable, color) {
 }
 
 function renderUI() {
+  if (!hasGenerated) {
+    document.getElementById('result').innerHTML = `<div style="text-align:center;color:#555;padding:40px 0;font-size:11px;">GENERATE PROMPTを押してください</div>`;
+    return;
+  }
+
   const v = lastVals;
   const rows = [
     fieldRow('Hair',       'hair',   v.hair,   true,  '#f9a8d4'),
@@ -276,6 +274,8 @@ function renderUI() {
 function generate() {
   generated++;
   if (!lat || !lng) { alert('Please click on the map to select a shooting location'); return; }
+
+  hasGenerated = true;
 
   CLEARABLE.forEach(k => { if (!isLocked(k)) clearedFields[k] = false; });
 
