@@ -225,9 +225,9 @@ function buildPrompt() {
     desc += `, paired with ${v.shoe}`;
   }
 
-  // Location
-  if (placeName) {
-    desc += `, standing at ${placeName}`;
+  // Location (緯度経度 + 住所)
+  if (lat && lng && placeName) {
+    desc += `, standing at latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)} (${placeName})`;
   }
 
   // Ending
