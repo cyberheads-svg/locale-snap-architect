@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Locale Snap Architect</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400&display=swap');
   :root {
@@ -59,6 +58,12 @@
   .saved-title { font-size: 10px; letter-spacing: 2px; color: #666; margin-bottom: 14px; }
   .saved-item { background: #131118; border: 1px solid #222; padding: 11px 15px; margin-bottom: 7px; font-size: 11px; color: #888; line-height: 1.6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .saved-item:hover { border-color: #444; color: #ccc; }
+  .search-container { position: relative; margin-bottom: 12px; }
+  #searchInput { width: 100%; padding: 10px 14px; background: #131118; border: 1px solid #333; color: #ddd; font-family: 'DM Mono', monospace; font-size: 13px; border-radius: 8px; }
+  #searchResults { position: absolute; top: 100%; left: 0; right: 0; background: #131118; border: 1px solid #333; border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 1000; display: none; }
+  .search-result { padding: 10px 14px; cursor: pointer; font-size: 12px; color: #ccc; border-bottom: 1px solid #222; }
+  .search-result:hover { background: #1a1820; color: #fff; }
+  .search-result:last-child { border-bottom: none; }
 </style>
 </head>
 <body>
@@ -68,6 +73,11 @@
     <h1>Locale Snap <span style="color:#f9a8d4">Architect</span></h1>
     <div style="color:#666;font-size:11px;margin-top:4px;">Map + Outfit Prompt Generator</div>
   </header>
+
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search location (e.g. Tokyo, Paris, New York)..." autocomplete="off">
+    <div id="searchResults"></div>
+  </div>
 
   <div id="map" style="margin-bottom:32px"></div>
 
@@ -92,7 +102,6 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-search@3.0.2/dist/leaflet-search.min.js"></script>
 
 <script>
 let currentSeason = 'spring';
@@ -103,6 +112,7 @@ let lockedFields = {};
 let clearedFields = {};
 let hasGenerated = false;
 let map, marker, lat, lng, placeName = '';
+let searchTimeout = null;
 
 // Clear可能なフィールド
 const CLEARABLE = ['hair', 'makeup', 'outer', 'acc'];
@@ -112,35 +122,6 @@ function initMap() {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
   }).addTo(map);
-
-  // Search control
-  const searchControl = new L.Control.Search({
-    url: 'https://nominatim.openstreetmap.org/search?format=json&q={s}',
-    jsonpParam: 'json_callback',
-    propertyName: 'display_name',
-    propertyLoc: ['lat', 'lon'],
-    marker: false,
-    autoCollapse: true,
-    autoType: false,
-    minLength: 2
-  });
-
-  searchControl.on('search:locationfound', function(e) {
-    if (marker) map.removeLayer(marker);
-
-    lat = parseFloat(e.latlng.lat);
-    lng = parseFloat(e.latlng.lng);
-    placeName = e.text;
-
-    marker = L.marker([lat, lng]).addTo(map);
-    marker.bindPopup(`<b>${placeName}</b>`).openPopup();
-
-    if (hasGenerated) {
-      buildPrompt();
-    }
-  });
-
-  map.addControl(searchControl);
 
   map.on('click', async function(e) {
     if (marker) map.removeLayer(marker);
@@ -158,10 +139,74 @@ function initMap() {
       marker.bindPopup(`Lat: ${lat.toFixed(4)}<br>Lng: ${lng.toFixed(4)}`).openPopup();
     }
 
-    if (hasGenerated) {
-      buildPrompt();
+    if (hasGenerated) buildPrompt();
+  });
+
+  // Search functionality
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+
+    if (query.length < 2) {
+      searchResults.style.display = 'none';
+      return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+        const results = await res.json();
+
+        searchResults.innerHTML = '';
+        searchResults.style.display = 'block';
+
+        results.forEach(item => {
+          const div = document.createElement('div');
+          div.className = 'search-result';
+          div.textContent = item.display_name;
+          div.onclick = () => {
+            selectLocation(item);
+            searchResults.style.display = 'none';
+            searchInput.value = '';
+          };
+          searchResults.appendChild(div);
+        });
+
+        if (results.length === 0) {
+          searchResults.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Search error:', err);
+      }
+    }, 400);
+  });
+
+  // Hide results when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+      searchResults.style.display = 'none';
     }
   });
+}
+
+function selectLocation(item) {
+  if (marker) map.removeLayer(marker);
+
+  lat = parseFloat(item.lat);
+  lng = parseFloat(item.lon);
+  placeName = item.display_name;
+
+  marker = L.marker([lat, lng]).addTo(map);
+  marker.bindPopup(`<b>${placeName}</b>`).openPopup();
+
+  map.setView([lat, lng], 10);
+
+  if (hasGenerated) {
+    buildPrompt();
+  }
 }
 
 function setSeason(s) {
@@ -277,10 +322,7 @@ function fieldRow(label, key, value, clearable, color) {
 }
 
 function renderUI() {
-  if (!hasGenerated) {
-    document.getElementById('result').innerHTML = `<div style="text-align:center;color:#555;padding:40px 0;font-size:11px;">GENERATE PROMPTを押してください</div>`;
-    return;
-  }
+  if (!hasGenerated) { return; }
 
   const v = lastVals;
   const rows = [
@@ -373,7 +415,7 @@ initMap();
 setSeason('spring');
 renderSaved();
 setTimeout(() => {
-  L.popup().setLatLng([35.6895, 139.6917]).setContent('Click on the map to select shooting location or use the search bar').openOn(map);
+  L.popup().setLatLng([35.6895, 139.6917]).setContent('Click on the map or use the search bar above').openOn(map);
 }, 700);
 </script>
 
