@@ -184,20 +184,56 @@ function reroll(k) {
 function buildPrompt() {
   const v = lastVals;
   if (!v || Object.keys(v).length === 0) return;
-  const seasonName = { spring: "Spring", summer: "Summer", autumn: "Autumn", winter: "Winter" }[currentSeason];
-  let p = [`${seasonName} outfit`];
-  if (!isCleared('hair') && v.hair)   p.push(v.hair);
-  if (!isCleared('makeup') && v.makeup) p.push(v.makeup);
-  if (v.style)   p.push(v.style);
-  if (v.top)     p.push(v.top);
-  if (v.bottom)  p.push(v.bottom);
-  if (!isCleared('outer') && v.outer) p.push(v.outer);
-  if (v.fabric)  p.push(`${v.fabric} fabric`);
-  if (v.color)   p.push(`color: ${v.color}`);
-  if (!isCleared('acc') && v.acc) p.push(v.acc);
-  if (v.shoe)    p.push(v.shoe);
-  if (placeName) p.unshift(`shot at ${placeName}`);
-  currentPrompt = p.join(", ");
+
+  let desc = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s`;
+
+  // Hair + Makeup
+  if (!isCleared('hair') && v.hair) desc += ` with ${v.hair}`;
+  if (!isCleared('makeup') && v.makeup) desc += ` and ${v.makeup}`;
+
+  // Outfit
+  let outfitParts = [];
+  if (v.top) outfitParts.push(v.top);
+  if (v.bottom) outfitParts.push(v.bottom);
+  if (!isCleared('outer') && v.outer) outfitParts.push(v.outer);
+
+  let outfitDesc = outfitParts.join(", ");
+  if (v.style && outfitDesc) {
+    outfitDesc = `${v.style} outfit consisting of ${outfitDesc}`;
+  } else if (v.style) {
+    outfitDesc = `${v.style} outfit`;
+  }
+
+  if (outfitDesc) {
+    desc += `, wearing ${outfitDesc}`;
+  }
+
+  // Fabric + Color
+  if (v.fabric && v.color) {
+    desc += ` in ${v.color} tones with ${v.fabric} fabric`;
+  } else if (v.color) {
+    desc += ` in ${v.color} tones`;
+  }
+
+  // Accessories
+  if (!isCleared('acc') && v.acc) {
+    desc += `, accessorized with ${v.acc}`;
+  }
+
+  // Shoes
+  if (v.shoe) {
+    desc += `, paired with ${v.shoe}`;
+  }
+
+  // Location
+  if (placeName) {
+    desc += `, standing at ${placeName}`;
+  }
+
+  // Ending
+  desc += `, soft natural daylight, relaxed and authentic expression, street fashion photography, slight motion blur, shot on iPhone, documentary style`;
+
+  currentPrompt = desc;
   renderUI();
 }
 
@@ -240,79 +276,77 @@ function renderUI() {
     <div class="prompt-label">PROMPT (copy to image AI)</div>
     <textarea class="prompt-textarea" id="promptTextarea" oninput="currentPrompt=this.value">${currentPrompt}</textarea>
 
-```
 <button class="copy-btn" onclick="copyPrompt()">COPY PROMPT</button>
-```
 
 `;
 }
 
 function generate() {
 generated++;
-if (!lat || !lng) { alert(‘地図上で撮影場所をクリックしてください’); return; }
+if (!lat || !lng) { alert('地図上で撮影場所をクリックしてください'); return; }
 
 lastVals = {
-style:  isLocked(‘style’)  ? lastVals.style  : pick(STYLES),
-top:    isLocked(‘top’)    ? lastVals.top    : pick(TOPS),
-bottom: isLocked(‘bottom’) ? lastVals.bottom : pick(BOTTOMS),
-fabric: isLocked(‘fabric’) ? lastVals.fabric : pick(FABRICS),
-color:  isLocked(‘color’)  ? lastVals.color  : pick(COLORS[currentSeason]),
-hair:   isLocked(‘hair’)   ? lastVals.hair   : pick(HAIR),
-makeup: isLocked(‘makeup’) ? lastVals.makeup : pick(MAKEUP),
-acc:    isLocked(‘acc’)    ? lastVals.acc    : pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(”, “),
-shoe:   isLocked(‘shoe’)   ? lastVals.shoe   : pick(SHOES),
-outer:  isLocked(‘outer’)  ? lastVals.outer  : (currentSeason !== ‘summer’ && Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null),
+style:  isLocked('style')  ? lastVals.style  : pick(STYLES),
+top:    isLocked('top')    ? lastVals.top    : pick(TOPS),
+bottom: isLocked('bottom') ? lastVals.bottom : pick(BOTTOMS),
+fabric: isLocked('fabric') ? lastVals.fabric : pick(FABRICS),
+color:  isLocked('color')  ? lastVals.color  : pick(COLORS[currentSeason]),
+hair:   isLocked('hair')   ? lastVals.hair   : pick(HAIR),
+makeup: isLocked('makeup') ? lastVals.makeup : pick(MAKEUP),
+acc:    isLocked('acc')    ? lastVals.acc    : pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(", "),
+shoe:   isLocked('shoe')   ? lastVals.shoe   : pick(SHOES),
+outer:  isLocked('outer')  ? lastVals.outer  : (currentSeason !== 'summer' && Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null),
 };
 
 // Clearされているものは引き継ぐ
 CLEARABLE.forEach(k => { if (isCleared(k)) clearedFields[k] = true; });
 
-document.getElementById(‘result’).style.display = ‘block’;
-document.getElementById(‘saveBtn’).style.display = ‘block’;
+document.getElementById('result').style.display = 'block';
+document.getElementById('saveBtn').style.display = 'block';
 buildPrompt();
 }
 
 function copyPrompt() {
 if (!currentPrompt) return;
 navigator.clipboard.writeText(currentPrompt).then(() => {
-const btn = document.querySelector(’.copy-btn’);
-if (btn) { btn.textContent = ‘COPIED ✓’; setTimeout(() => { btn.textContent = ‘COPY PROMPT’; }, 1800); }
+const btn = document.querySelector('.copy-btn');
+if (btn) { btn.textContent = 'COPIED ✓'; setTimeout(() => { btn.textContent = 'COPY PROMPT'; }, 1800); }
 });
 }
 
 function savePrompt() {
 if (!currentPrompt) return;
-let saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
+let saved = JSON.parse(localStorage.getItem('locale_snap_v1') || '[]');
 if (!saved.includes(currentPrompt)) {
-saved.unshift(currentPrompt);
-localStorage.setItem(‘locale_snap_v1’, JSON.stringify(saved.slice(0, 25)));
+  saved.unshift(currentPrompt);
+  localStorage.setItem('locale_snap_v1', JSON.stringify(saved.slice(0, 25)));
 }
 renderSaved();
 }
 
 function deleteSaved(i) {
-let saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
+let saved = JSON.parse(localStorage.getItem('locale_snap_v1') || '[]');
 saved.splice(i, 1);
-localStorage.setItem(‘locale_snap_v1’, JSON.stringify(saved));
+localStorage.setItem('locale_snap_v1', JSON.stringify(saved));
 renderSaved();
 }
 
 function renderSaved() {
-const saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
-const sec  = document.getElementById(‘savedSection’);
-const list = document.getElementById(‘savedList’);
-if (!saved.length) { sec.style.display = ‘none’; return; }
-sec.style.display = ‘block’;
+const saved = JSON.parse(localStorage.getItem('locale_snap_v1') || '[]');
+const sec  = document.getElementById('savedSection');
+const list = document.getElementById('savedList');
+if (!saved.length) { sec.style.display = 'none'; return; }
+sec.style.display = 'block';
 list.innerHTML = saved.map((p, i) =>
-`<div class="saved-item"> <div style="flex:1;word-break:break-all" onclick="navigator.clipboard.writeText(${JSON.stringify(p)})">${p}</div> <button onclick="deleteSaved(${i});event.stopPropagation()" style="background:transparent;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:2px 6px;flex-shrink:0">✖</button> </div>`
-).join(’’);
+  `<div class="saved-item"> <div style="flex:1;word-break:break-all" onclick="navigator.clipboard.writeText(${JSON.stringify(p)})">${p}</div> <button onclick="deleteSaved(${i});event.stopPropagation()" style="background:transparent;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:2px 6px;flex-shrink:0">✖</button> </div>`
+).join('');
 }
 
 initMap();
-setSeason(‘spring’);
+setSeason('spring');
 renderSaved();
 setTimeout(() => {
-L.popup().setLatLng([35.6895, 139.6917]).setContent(‘地図をクリックして撮影場所を指定’).openOn(map);
+  L.popup().setLatLng([35.6895, 139.6917]).setContent('地図をクリックして撮影場所を指定').openOn(map);
 }, 700);
 </script>
 
