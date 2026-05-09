@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
@@ -31,13 +32,23 @@
   .fields { display: flex; flex-direction: column; gap: 0; }
   .field-row { display: grid; grid-template-columns: 92px 1fr auto; gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid #222; }
   .field-row:last-child { border-bottom: none; }
+  .field-row.is-locked { background: #0f0d14; }
+  .field-row.is-cleared { opacity: .35; }
   .field-label { font-size: 9px; letter-spacing: 1px; color: #666; text-transform: uppercase; }
   .field-value { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 15px; color: #ddd; }
-  .reroll-btn { background: none; border: none; color: #555; font-size: 15px; cursor: pointer; padding: 0 4px; transition: color 0.2s; }
+  .field-value.cleared { font-family: 'DM Mono', monospace; font-style: normal; font-size: 11px; color: #333 !important; }
+  .field-actions { display: flex; gap: 3px; align-items: center; }
+  .reroll-btn { background: none; border: none; color: #555; font-size: 15px; cursor: pointer; padding: 0 4px; transition: color 0.2s; flex-shrink: 0; }
   .reroll-btn:hover { color: #f9a8d4; }
+  .lock-btn { background: transparent; border: none; color: #333; font-size: 12px; cursor: pointer; padding: 2px 3px; line-height: 1; transition: all .15s; flex-shrink: 0; }
+  .lock-btn:hover { color: #6a6278; }
+  .lock-btn.locked { color: #f9a8d4; text-shadow: 0 0 6px #f9a8d4; }
+  .clear-btn { background: transparent; border: none; color: #333; font-size: 11px; cursor: pointer; padding: 2px 4px; line-height: 1; transition: color .15s; flex-shrink: 0; }
+  .clear-btn:hover { color: #ef4444; }
+  .clear-btn.active { color: #ef4444; }
   .divider { height: 1px; background: #222; margin: 24px 0; }
   .prompt-label { font-size: 9px; letter-spacing: 1.5px; color: #666; margin-bottom: 10px; }
-  .prompt-textarea { width: 100%; background: #0a080c; border: 1px solid #333; color: #ccc; font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 1.75; padding: 14px; resize: vertical; min-height: 110px; margin-bottom: 16px; }
+  .prompt-textarea { width: 100%; background: #0a080c; border: 1px solid #333; color: #ccc; font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 1.75; padding: 14px; resize: vertical; min-height: 110px; margin-bottom: 16px; box-sizing: border-box; }
   .copy-btn { background: transparent; border: 1px solid #444; color: #888; padding: 9px 26px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
   .copy-btn:hover { border-color: #f9a8d4; color: #f9a8d4; }
   .generate-btn { width: 100%; background: transparent; border: 1px solid #3a2a4a; color: #f9a8d4; padding: 17px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; cursor: pointer; margin-bottom: 12px; transition: all 0.2s; }
@@ -45,7 +56,7 @@
   .save-btn { width: 100%; background: transparent; border: 1px solid #333; color: #777; padding: 12px; font-size: 10px; letter-spacing: 1.8px; text-transform: uppercase; cursor: pointer; margin-bottom: 50px; }
   .save-btn:hover { border-color: #555; color: #aaa; }
   .saved-title { font-size: 10px; letter-spacing: 2px; color: #666; margin-bottom: 14px; }
-  .saved-item { background: #131118; border: 1px solid #222; padding: 11px 15px; margin-bottom: 7px; font-size: 11px; color: #888; line-height: 1.6; cursor: pointer; }
+  .saved-item { background: #131118; border: 1px solid #222; padding: 11px 15px; margin-bottom: 7px; font-size: 11px; color: #888; line-height: 1.6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .saved-item:hover { border-color: #444; color: #ccc; }
 </style>
 </head>
@@ -57,10 +68,8 @@
     <div style="color:#666;font-size:11px;margin-top:4px;">Map + Outfit Prompt Generator</div>
   </header>
 
-  <!-- MAP -->
   <div id="map" style="margin-bottom:32px"></div>
 
-  <!-- SEASON -->
   <div class="season-selector">
     <button class="season-btn active" data-season="spring" onclick="setSeason('spring')">🌸 SPRING</button>
     <button class="season-btn" data-season="summer" onclick="setSeason('summer')">☀️ SUMMER</button>
@@ -72,8 +81,8 @@
     <div id="result"></div>
   </div>
 
-  <button class="generate-btn" onclick="generate()">GENERATE PROMPT</button>
-  <button class="save-btn" onclick="savePrompt()" id="saveBtn" style="display:none">SAVE THIS PROMPT</button>
+<button class="generate-btn" onclick="generate()">GENERATE PROMPT</button>
+<button class="save-btn" onclick="savePrompt()" id="saveBtn" style="display:none">SAVE THIS PROMPT</button>
 
   <div id="savedSection" style="display:none">
     <div class="saved-title">SAVED PROMPTS</div>
@@ -82,12 +91,18 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 let currentSeason = 'spring';
 let generated = 0;
 let currentPrompt = '';
 let lastVals = {};
+let lockedFields = {};
+let clearedFields = {};
 let map, marker, lat, lng, placeName = '';
+
+// Clear可能なフィールド
+const CLEARABLE = ['hair', 'makeup', 'outer', 'acc'];
 
 function initMap() {
   map = L.map('map').setView([35.6895, 139.6917], 5);
@@ -100,7 +115,6 @@ function initMap() {
     lat = e.latlng.lat;
     lng = e.latlng.lng;
     marker = L.marker([lat, lng]).addTo(map);
-
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
       const data = await res.json();
@@ -110,6 +124,7 @@ function initMap() {
       placeName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
       marker.bindPopup(`Lat: ${lat.toFixed(4)}<br>Lng: ${lng.toFixed(4)}`).openPopup();
     }
+    buildPrompt();
   });
 }
 
@@ -117,6 +132,14 @@ function setSeason(s) {
   currentSeason = s;
   document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-season="${s}"]`).classList.add('active');
+  // season変更時にouter・colorを再ロールしていない場合のみ更新
+  if (!lockedFields['outer'] && !clearedFields['outer']) {
+    lastVals.outer = currentSeason === 'summer' ? null : (Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null);
+  }
+  if (!lockedFields['color']) {
+    lastVals.color = pick(COLORS[currentSeason]);
+  }
+  if (Object.keys(lastVals).length > 0) buildPrompt();
 }
 
 const STYLES = ["dark academia","light academia","cottagecore","fairycore","streetwear","quiet luxury","Parisian chic","Tokyo street fashion","coastal grandmother","clean girl","e-girl","soft girl","old money","balletcore"];
@@ -130,120 +153,168 @@ const MAKEUP = ["natural no-makeup look","dewy korean glass skin","soft peachy b
 const ACCESSORIES = ["pearl hair clip","satin scrunchie","oversized square sunglasses","layered gold chains","chunky silver hoops","mini structured bag","silk neck scarf","wide leather belt"];
 const SHOES = ["pointed-toe kitten heels","block heel mules","strappy heeled sandals","white leather sneakers","chunky platform sneakers","ballet flats","Mary Jane shoes","loafers in leather"];
 
-function pick(a){return a[Math.floor(Math.random()*a.length)]}
-function pickN(a,n){return [...a].sort(()=>0.5-Math.random()).slice(0,Math.min(n,a.length))}
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function pickN(a, n) { return [...a].sort(() => 0.5 - Math.random()).slice(0, Math.min(n, a.length)); }
 
-function reroll(k){
-  const pools = {style:STYLES,top:TOPS,bottom:BOTTOMS,fabric:FABRICS,shoe:SHOES,hair:HAIR,makeup:MAKEUP,acc:ACCESSORIES};
-  if(k==='outer') lastVals.outer = currentSeason==='summer'?null:pick(OUTERWEAR[currentSeason]);
-  else if(k==='color') lastVals.color = pick(COLORS[currentSeason]);
-  else if(k==='acc') lastVals.acc = pickN(ACCESSORIES, Math.random()<0.5?2:3).join(", ");
+const isLocked  = k => !!lockedFields[k];
+const isCleared = k => !!clearedFields[k];
+
+function toggleLock(k) {
+  lockedFields[k] = !lockedFields[k];
+  buildPrompt();
+}
+
+function toggleClear(k) {
+  if (isLocked(k)) return;
+  clearedFields[k] = !clearedFields[k];
+  buildPrompt();
+}
+
+function reroll(k) {
+  if (isLocked(k)) return;
+  clearedFields[k] = false;
+  const pools = { style: STYLES, top: TOPS, bottom: BOTTOMS, fabric: FABRICS, shoe: SHOES, hair: HAIR, makeup: MAKEUP };
+  if (k === 'outer') lastVals.outer = currentSeason === 'summer' ? null : pick(OUTERWEAR[currentSeason]);
+  else if (k === 'color') lastVals.color = pick(COLORS[currentSeason]);
+  else if (k === 'acc') lastVals.acc = pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(", ");
   else lastVals[k] = pick(pools[k]);
   buildPrompt();
 }
 
-function buildPrompt(){
+function buildPrompt() {
   const v = lastVals;
-  const seasonName = {spring:"Spring",summer:"Summer",autumn:"Autumn",winter:"Winter"}[currentSeason];
-  let p = [
-    `${seasonName} outfit`,
-    v.hair,
-    v.makeup,
-    v.style,
-    v.top,
-    v.bottom
-  ];
-  if(v.outer) p.push(v.outer);
-  p.push(`${v.fabric} fabric`, `color: ${v.color}`, v.acc, v.shoe);
-  if(placeName) p.unshift(`shot at ${placeName}`);
+  if (!v || Object.keys(v).length === 0) return;
+  const seasonName = { spring: "Spring", summer: "Summer", autumn: "Autumn", winter: "Winter" }[currentSeason];
+  let p = [`${seasonName} outfit`];
+  if (!isCleared('hair') && v.hair)   p.push(v.hair);
+  if (!isCleared('makeup') && v.makeup) p.push(v.makeup);
+  if (v.style)   p.push(v.style);
+  if (v.top)     p.push(v.top);
+  if (v.bottom)  p.push(v.bottom);
+  if (!isCleared('outer') && v.outer) p.push(v.outer);
+  if (v.fabric)  p.push(`${v.fabric} fabric`);
+  if (v.color)   p.push(`color: ${v.color}`);
+  if (!isCleared('acc') && v.acc) p.push(v.acc);
+  if (v.shoe)    p.push(v.shoe);
+  if (placeName) p.unshift(`shot at ${placeName}`);
   currentPrompt = p.join(", ");
   renderUI();
 }
 
-function renderUI(){
+function fieldRow(label, key, value, clearable) {
+  const locked  = isLocked(key);
+  const cleared = isCleared(key);
+  const displayVal = cleared
+    ? `<div class="field-value cleared">— excluded —</div>`
+    : `<div class="field-value">${value || '— none —'}</div>`;
+  const lockBtn  = `<button class="lock-btn ${locked ? 'locked' : ''}" onclick="toggleLock('${key}')">${locked ? '🔒' : '🔓'}</button>`;
+  const rerollBtn = `<button class="reroll-btn" onclick="reroll('${key}')">🔄</button>`;
+  const clearBtn  = clearable
+    ? `<button class="clear-btn ${cleared ? 'active' : ''}" onclick="toggleClear('${key}')">✖</button>`
+    : '';
+  return `<div class="field-row ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''}">
+    <div class="field-label">${label}</div>
+    ${displayVal}
+    <div class="field-actions">${lockBtn}${rerollBtn}${clearBtn}</div>
+  </div>`;
+}
+
+function renderUI() {
   const v = lastVals;
-  const html = `
-    <div class="fields">
-      <div class="field-row"><div class="field-label">Hair</div><div class="field-value">${v.hair}</div><button class="reroll-btn" onclick="reroll('hair')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Makeup</div><div class="field-value">${v.makeup}</div><button class="reroll-btn" onclick="reroll('makeup')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Style</div><div class="field-value">${v.style}</div><button class="reroll-btn" onclick="reroll('style')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Top</div><div class="field-value">${v.top}</div><button class="reroll-btn" onclick="reroll('top')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Bottom</div><div class="field-value">${v.bottom}</div><button class="reroll-btn" onclick="reroll('bottom')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Outerwear</div><div class="field-value">${v.outer||'— none —'}</div>${currentSeason!=='summer'?'<button class="reroll-btn" onclick="reroll(\'outer\')">🔄</button>':''}</div>
-      <div class="field-row"><div class="field-label">Fabric</div><div class="field-value">${v.fabric}</div><button class="reroll-btn" onclick="reroll('fabric')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Color</div><div class="field-value">${v.color}</div><button class="reroll-btn" onclick="reroll('color')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Accessories</div><div class="field-value">${v.acc}</div><button class="reroll-btn" onclick="reroll('acc')">🔄</button></div>
-      <div class="field-row"><div class="field-label">Shoes</div><div class="field-value">${v.shoe}</div><button class="reroll-btn" onclick="reroll('shoe')">🔄</button></div>
-    </div>
+  const rows = [
+    fieldRow('Hair',       'hair',   v.hair,   true),
+    fieldRow('Makeup',     'makeup', v.makeup, true),
+    fieldRow('Style',      'style',  v.style,  false),
+    fieldRow('Top',        'top',    v.top,    false),
+    fieldRow('Bottom',     'bottom', v.bottom, false),
+    fieldRow('Outerwear',  'outer',  v.outer,  true),
+    fieldRow('Fabric',     'fabric', v.fabric, false),
+    fieldRow('Color',      'color',  v.color,  false),
+    fieldRow('Accessories','acc',    v.acc,    true),
+    fieldRow('Shoes',      'shoe',   v.shoe,   false),
+  ].join('');
+
+  document.getElementById('result').innerHTML = `
+    <div class="fields">${rows}</div>
     <div class="divider"></div>
     <div class="prompt-label">PROMPT (copy to image AI)</div>
     <textarea class="prompt-textarea" id="promptTextarea" oninput="currentPrompt=this.value">${currentPrompt}</textarea>
-    <button class="copy-btn" onclick="copyPrompt()">COPY PROMPT</button>
-  `;
-  document.getElementById('result').innerHTML = html;
+
+```
+<button class="copy-btn" onclick="copyPrompt()">COPY PROMPT</button>
+```
+
+`;
 }
 
-function generate(){
-  generated++;
-  if(!lat || !lng){ alert('地図上で撮影場所をクリックしてください'); return; }
+function generate() {
+generated++;
+if (!lat || !lng) { alert(‘地図上で撮影場所をクリックしてください’); return; }
 
-  const style = pick(STYLES);
-  const top = pick(TOPS);
-  const bottom = pick(BOTTOMS);
-  const fabric = pick(FABRICS);
-  const color = pick(COLORS[currentSeason]);
-  const hair = pick(HAIR);
-  const makeup = pick(MAKEUP);
-  const acc = pickN(ACCESSORIES, Math.random()<0.5?2:3).join(", ");
-  const shoe = pick(SHOES);
-  let outer = null;
-  if(currentSeason !== 'summer' && Math.random() < 0.55) outer = pick(OUTERWEAR[currentSeason]);
+lastVals = {
+style:  isLocked(‘style’)  ? lastVals.style  : pick(STYLES),
+top:    isLocked(‘top’)    ? lastVals.top    : pick(TOPS),
+bottom: isLocked(‘bottom’) ? lastVals.bottom : pick(BOTTOMS),
+fabric: isLocked(‘fabric’) ? lastVals.fabric : pick(FABRICS),
+color:  isLocked(‘color’)  ? lastVals.color  : pick(COLORS[currentSeason]),
+hair:   isLocked(‘hair’)   ? lastVals.hair   : pick(HAIR),
+makeup: isLocked(‘makeup’) ? lastVals.makeup : pick(MAKEUP),
+acc:    isLocked(‘acc’)    ? lastVals.acc    : pickN(ACCESSORIES, Math.random() < 0.5 ? 2 : 3).join(”, “),
+shoe:   isLocked(‘shoe’)   ? lastVals.shoe   : pick(SHOES),
+outer:  isLocked(‘outer’)  ? lastVals.outer  : (currentSeason !== ‘summer’ && Math.random() < 0.55 ? pick(OUTERWEAR[currentSeason]) : null),
+};
 
-  lastVals = {style, top, bottom, fabric, color, hair, makeup, acc, shoe, outer};
+// Clearされているものは引き継ぐ
+CLEARABLE.forEach(k => { if (isCleared(k)) clearedFields[k] = true; });
 
-  document.getElementById('result').style.display = 'block';
-  document.getElementById('saveBtn').style.display = 'block';
-  buildPrompt();
+document.getElementById(‘result’).style.display = ‘block’;
+document.getElementById(‘saveBtn’).style.display = ‘block’;
+buildPrompt();
 }
 
-function copyPrompt(){
-  if(!currentPrompt) return;
-  navigator.clipboard.writeText(currentPrompt).then(() => {
-    const btns = document.querySelectorAll('.copy-btn');
-    if(btns.length) {
-      btns[0].textContent = 'COPIED ✓';
-      setTimeout(()=>{btns[0].textContent='COPY PROMPT'},1800);
-    }
-  });
+function copyPrompt() {
+if (!currentPrompt) return;
+navigator.clipboard.writeText(currentPrompt).then(() => {
+const btn = document.querySelector(’.copy-btn’);
+if (btn) { btn.textContent = ‘COPIED ✓’; setTimeout(() => { btn.textContent = ‘COPY PROMPT’; }, 1800); }
+});
 }
 
-function savePrompt(){
-  if(!currentPrompt) return;
-  let saved = JSON.parse(localStorage.getItem('locale_snap_v1')||'[]');
-  if(!saved.includes(currentPrompt)){
-    saved.unshift(currentPrompt);
-    localStorage.setItem('locale_snap_v1', JSON.stringify(saved.slice(0,25)));
-  }
-  renderSaved();
+function savePrompt() {
+if (!currentPrompt) return;
+let saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
+if (!saved.includes(currentPrompt)) {
+saved.unshift(currentPrompt);
+localStorage.setItem(‘locale_snap_v1’, JSON.stringify(saved.slice(0, 25)));
 }
-
-function renderSaved(){
-  const saved = JSON.parse(localStorage.getItem('locale_snap_v1')||'[]');
-  const sec = document.getElementById('savedSection');
-  const list = document.getElementById('savedList');
-  if(!saved.length){ sec.style.display='none'; return; }
-  sec.style.display='block';
-  list.innerHTML = saved.map((p,i)=>`<div class="saved-item" onclick="navigator.clipboard.writeText('${p.replace(/'/g,"\\'")}')">${p}</div>`).join('');
-}
-
-// Init
-initMap();
-setSeason('spring');
 renderSaved();
-// 初期案内
-setTimeout(()=>{ 
-  const popup = L.popup().setLatLng([35.6895,139.6917]).setContent('地図をクリックして撮影場所を指定').openOn(map);
-},700);
+}
+
+function deleteSaved(i) {
+let saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
+saved.splice(i, 1);
+localStorage.setItem(‘locale_snap_v1’, JSON.stringify(saved));
+renderSaved();
+}
+
+function renderSaved() {
+const saved = JSON.parse(localStorage.getItem(‘locale_snap_v1’) || ‘[]’);
+const sec  = document.getElementById(‘savedSection’);
+const list = document.getElementById(‘savedList’);
+if (!saved.length) { sec.style.display = ‘none’; return; }
+sec.style.display = ‘block’;
+list.innerHTML = saved.map((p, i) =>
+`<div class="saved-item"> <div style="flex:1;word-break:break-all" onclick="navigator.clipboard.writeText(${JSON.stringify(p)})">${p}</div> <button onclick="deleteSaved(${i});event.stopPropagation()" style="background:transparent;border:none;color:#ef4444;font-size:12px;cursor:pointer;padding:2px 6px;flex-shrink:0">✖</button> </div>`
+).join(’’);
+}
+
+initMap();
+setSeason(‘spring’);
+renderSaved();
+setTimeout(() => {
+L.popup().setLatLng([35.6895, 139.6917]).setContent(‘地図をクリックして撮影場所を指定’).openOn(map);
+}, 700);
 </script>
+
 </body>
 </html>
