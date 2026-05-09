@@ -79,10 +79,10 @@
         return;
       }
 
-      const prompt = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s, standing in ${placeName}, soft natural daylight, relaxed expression, street fashion, shot on iPhone 15, documentary style, slight motion blur, authentic moment`;
+      const prompt = `A natural candid snapshot photo of a stylish Japanese woman in her mid-20s, standing at latitude ${lat.toFixed(4)}, longitude ${lng.toFixed(4)} (${placeName}), soft natural daylight, relaxed expression, street fashion, shot on iPhone 15, documentary style, slight motion blur, authentic moment`;
 
       document.getElementById('promptText').textContent = prompt;
-      document.getElementById('locationInfo').innerHTML = `📍 ${placeName}`;
+      document.getElementById('locationInfo').innerHTML = `📍 ${placeName} (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
       document.getElementById('result').style.display = 'block';
     }
 
