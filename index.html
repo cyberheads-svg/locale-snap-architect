@@ -34,10 +34,6 @@
   .field-row:last-child { border-bottom: none; }
   .field-row.is-locked { background: #0f0d14; }
   .field-row.is-cleared { opacity: .35; }
-  .field-row.group-person { background: rgba(249, 168, 212, 0.06); }
-  .field-row.group-outfit { background: rgba(192, 132, 252, 0.06); }
-  .field-row.group-material { background: rgba(147, 197, 253, 0.06); }
-  .field-row.group-detail { background: rgba(103, 232, 249, 0.06); }
   .field-label { font-size: 9px; letter-spacing: 1px; color: #666; text-transform: uppercase; }
   .field-value { font-family: 'DM Serif Display', serif; font-style: italic; font-size: 15px; color: #ddd; }
   .field-value.cleared { font-family: 'DM Mono', monospace; font-style: normal; font-size: 11px; color: #333 !important; }
@@ -233,18 +229,18 @@ function buildPrompt() {
   renderUI();
 }
 
-function fieldRow(label, key, value, clearable, group) {
+function fieldRow(label, key, value, clearable, color) {
   const locked  = isLocked(key);
   const cleared = isCleared(key);
   const displayVal = cleared
     ? `<div class="field-value cleared">— excluded —</div>`
-    : `<div class="field-value">${value || '— none —'}</div>`;
+    : `<div class="field-value" style="color:${color}">${value || '— none —'}</div>`;
   const lockBtn  = `<button class="lock-btn ${locked ? 'locked' : ''}" onclick="toggleLock('${key}')">${locked ? '🔒' : '🔓'}</button>`;
   const rerollBtn = `<button class="reroll-btn" onclick="reroll('${key}')">🔄</button>`;
   const clearBtn  = clearable
     ? `<button class="clear-btn ${cleared ? 'active' : ''}" onclick="toggleClear('${key}')">✖</button>`
     : '';
-  return `<div class="field-row ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''} ${group}">
+  return `<div class="field-row ${locked ? 'is-locked' : ''} ${cleared ? 'is-cleared' : ''}">
     <div class="field-label">${label}</div>
     ${displayVal}
     <div class="field-actions">${lockBtn}${rerollBtn}${clearBtn}</div>
@@ -254,16 +250,16 @@ function fieldRow(label, key, value, clearable, group) {
 function renderUI() {
   const v = lastVals;
   const rows = [
-    fieldRow('Hair',       'hair',   v.hair,   true,  'group-person'),
-    fieldRow('Makeup',     'makeup', v.makeup, true,  'group-person'),
-    fieldRow('Style',      'style',  v.style,  false, 'group-outfit'),
-    fieldRow('Top',        'top',    v.top,    false, 'group-outfit'),
-    fieldRow('Bottom',     'bottom', v.bottom, false, 'group-outfit'),
-    fieldRow('Outerwear',  'outer',  v.outer,  true,  'group-outfit'),
-    fieldRow('Fabric',     'fabric', v.fabric, false, 'group-material'),
-    fieldRow('Color',      'color',  v.color,  false, 'group-material'),
-    fieldRow('Accessories','acc',    v.acc,    true,  'group-detail'),
-    fieldRow('Shoes',      'shoe',   v.shoe,   false, 'group-detail'),
+    fieldRow('Hair',       'hair',   v.hair,   true,  '#f9a8d4'),
+    fieldRow('Makeup',     'makeup', v.makeup, true,  '#fda4af'),
+    fieldRow('Style',      'style',  v.style,  false, '#c084fc'),
+    fieldRow('Top',        'top',    v.top,    false, '#f472b6'),
+    fieldRow('Bottom',     'bottom', v.bottom, false, '#4ade80'),
+    fieldRow('Outerwear',  'outer',  v.outer,  true,  '#60a5fa'),
+    fieldRow('Fabric',     'fabric', v.fabric, false, '#f9a8d4'),
+    fieldRow('Color',      'color',  v.color,  false, '#67e8f9'),
+    fieldRow('Accessories','acc',    v.acc,    true,  '#67e8f9'),
+    fieldRow('Shoes',      'shoe',   v.shoe,   false, '#bae6fd'),
   ].join('');
 
   document.getElementById('result').innerHTML = `
